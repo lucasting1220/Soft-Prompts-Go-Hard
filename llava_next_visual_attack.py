@@ -151,8 +151,15 @@ def main():
 
     model = LlavaNextForConditionalGeneration.from_pretrained(
         args.model_id, torch_dtype=torch.float16, device_map=None,
-    ).to(device).eval()
+    ).to(device)
     model.requires_grad_(False)
+    # Gradient checkpointing trades compute for activation memory (recomputes
+    # activations during backward instead of storing them) -- needed to fit the
+    # 8B model's forward/backward on a single ~22GB GPU. HF only applies
+    # checkpointing when model.training is True, so use train() instead of
+    # eval() here; this model has 0 dropout by default so behavior is unaffected.
+    model.gradient_checkpointing_enable()
+    model.train()
 
     # ---- data ----
     cols = read_csv_columns(args.data_path)
