@@ -150,7 +150,7 @@ def main():
         return
 
     model = LlavaNextForConditionalGeneration.from_pretrained(
-        args.model_id, torch_dtype=torch.float16, device_map=None,
+        args.model_id, torch_dtype=torch.bfloat16, device_map=None,
     ).to(device)
     model.requires_grad_(False)
     # Gradient checkpointing trades compute for activation memory (recomputes
