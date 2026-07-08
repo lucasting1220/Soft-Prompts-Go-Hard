@@ -255,25 +255,35 @@ def _save_loss_curve(args, loss_buffer):
 @torch.no_grad()
 def _sample_generation(model, processor, x_adv, example, device):
     """Print a short generation on the current adversarial image for visibility."""
+    # generate() needs eval mode + real KV caching; both get disturbed by the
+    # train()/gradient-checkpointing state the training loop needs, so switch
+    # out of that state here and restore it afterward.
+    was_training = model.training
+    model.gradient_checkpointing_disable()
+    model.eval()
     try:
-        from llava_next_utils.preprocess import build_pixel_values
-        pv, isz = build_pixel_values(x_adv.detach(), processor,
-                                     dtype=model.dtype, device=device)
-        # regenerate from the prompt part only (labels==-100 positions)
-        labels = example["labels"][0]
-        prompt_len = int((labels == -100).sum().item())
-        prompt_ids = example["input_ids"][:, :prompt_len]
-        gen = model.generate(
-            input_ids=prompt_ids,
-            attention_mask=torch.ones_like(prompt_ids),
-            pixel_values=pv, image_sizes=isz,
-            max_new_tokens=40, do_sample=False,
-        )
-        text = processor.tokenizer.decode(gen[0, prompt_ids.shape[1]:],
-                                          skip_special_tokens=True)
-        print("   sample >>>", text.replace("\n", " "))
+        with torch.no_grad():
+            from llava_next_utils.preprocess import build_pixel_values
+            pv, isz = build_pixel_values(x_adv.detach(), processor,
+                                         dtype=model.dtype, device=device)
+            # regenerate from the prompt part only (labels==-100 positions)
+            labels = example["labels"][0]
+            prompt_len = int((labels == -100).sum().item())
+            prompt_ids = example["input_ids"][:, :prompt_len]
+            gen = model.generate(
+                input_ids=prompt_ids,
+                attention_mask=torch.ones_like(prompt_ids),
+                pixel_values=pv, image_sizes=isz,
+                max_new_tokens=40, do_sample=False,
+            )
+            text = processor.tokenizer.decode(gen[0, prompt_ids.shape[1]:],
+                                              skip_special_tokens=True)
+            print("   sample >>>", text.replace("\n", " "))
     except Exception as e:
         print("   (sample generation skipped:", e, ")")
+    finally:
+        model.gradient_checkpointing_enable()
+        model.train(was_training)
 
 
 if __name__ == "__main__":
