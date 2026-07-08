@@ -62,7 +62,7 @@ def parse_args():
     # region mask
     p.add_argument("--region_mode", type=str, default="margin",
                    choices=["margin", "bottom", "corner", "box"])
-    p.add_argument("--region_frac", type=float, default=0.2,
+    p.add_argument("--region_frac", type=float, default=0.1,
                    help="band width (margin/bottom) or square side (corner) as fraction of image")
     p.add_argument("--region_x", type=int, default=0)
     p.add_argument("--region_y", type=int, default=0)
